@@ -10,6 +10,7 @@ import {
   ComposedChart,
 } from "recharts";
 import { Loader2, RefreshCw } from "lucide-react";
+import { generateDummyClassroomData } from "@/lib/dummyData";
 
 import {
   Card,
@@ -49,7 +50,7 @@ const chartConfig = {
   },
 };
 
-export function ChartAreaInteractive() {
+export function ChartAreaInteractive({ classroomId }) {
   const [timeRange, setTimeRange] = React.useState("1d");
   const [chartData, setChartData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -63,13 +64,24 @@ export function ChartAreaInteractive() {
 
       setError(null);
 
-      const response = await fetch("http://localhost:9060/main-chart/data");
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const result = await response.json();
+      // Classroom 1 uses real data, others use dummy data
+      let result;
+      if (classroomId === 1) {
+        // Real data from backend
+        const response = await fetch("http://localhost:9060/main-chart/data");
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        result = await response.json();
+        if (!result.success) throw new Error("Failed to fetch data");
+      } else {
+        // Dummy data for other classrooms
+        result = generateDummyClassroomData(classroomId || 1);
+        if (!result.success) throw new Error("Failed to generate data");
+      }
+      
       if (result.success) {
         setChartData(result.data);
       } else {
-        throw new Error("Failed to fetch data");
+        throw new Error("Failed to fetch/generate data");
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -82,7 +94,10 @@ export function ChartAreaInteractive() {
 
   React.useEffect(() => {
     fetchData();
-  }, []);
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => fetchData(true), 30000);
+    return () => clearInterval(interval);
+  }, [classroomId]);
 
   const handleRefresh = () => {
     fetchData(true);
@@ -154,7 +169,7 @@ export function ChartAreaInteractive() {
     <Card className="pt-0 bg-gradient-to-br from-slate-800/40 to-indigo-900/40 border border-indigo-500/30 backdrop-blur-sm shadow-2xl">
       <CardHeader className="flex items-center gap-2 border-b border-indigo-400/30 py-6 sm:flex-row bg-gradient-to-r from-indigo-600/40 to-purple-600/40">
         <div className="grid flex-1 gap-2">
-          <CardTitle className="text-2xl font-bold text-indigo-100">📈 Power Analytics</CardTitle>
+          <CardTitle className="text-2xl font-bold text-indigo-100">📈 Power Analytics - Classroom {classroomId}</CardTitle>
           <CardDescription className="text-indigo-300/80">
             Visualizing power consumption, current, and voltage trends
           </CardDescription>

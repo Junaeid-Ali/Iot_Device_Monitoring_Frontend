@@ -3,9 +3,13 @@
 import { ChartAreaInteractive } from "./Main_chart";
 import { DeviceControl } from "@/components/DeviceControl";
 import BillCard from "@/components/BillCard";
+import ClassroomSelector from "@/components/ClassroomSelector";
 import React, { useEffect, useState } from "react";
+import classroomBus from "@/lib/classroomBus";
 
 export default function Home() {
+  const [selectedClassroom, setSelectedClassroom] = useState(1);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-4 md:p-8">
       {/* Header */}
@@ -13,56 +17,71 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 rounded-2xl blur-xl"></div>
         <div className="relative px-6 py-8 rounded-2xl border border-indigo-500/30 backdrop-blur-sm bg-gradient-to-r from-indigo-950/50 to-purple-950/50">
           <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-300 via-purple-200 to-indigo-300 bg-clip-text text-transparent mb-3">
-            IoT Power Dashboard
+            🏢 Building Power Dashboard
           </h1>
           <p className="text-indigo-200/80 text-lg font-light tracking-wide">
-            Real-Time Monitoring of Your IoT Device • Live Analytics
+            Multi-Classroom Real-Time Monitoring • 30 Classrooms
           </p>
         </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Sidebar - Data Display */}
+        {/* Left Sidebar - Classroom Selector & Data Display */}
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-5">
-              <App />
-              <BillCard />
-            </div>
+            <ClassroomSelector selectedClassroom={selectedClassroom} onSelectClassroom={setSelectedClassroom} />
+            <App classroomId={selectedClassroom} />
+            <BillCard classroomId={selectedClassroom} />
+          </div>
         </div>
 
         {/* Right Content - Chart and Control */}
         <div className="lg:col-span-3 space-y-6">
-          <DeviceControl />
-          <ChartAreaInteractive />
+          <DeviceControl classroomId={selectedClassroom} />
+          <ChartAreaInteractive classroomId={selectedClassroom} />
         </div>
       </div>
     </div>
   );
-}
-
-function App() {
+}function App({ classroomId }) {
   const [data, setData] = useState(null);
   const [blink, setBlink] = useState(false);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:9060");
+    // For classroom 1 use backend WebSocket. For others subscribe to classroomBus.
+    if (classroomId === 1) {
+      const ws = new WebSocket("ws://localhost:9060");
 
-    ws.onopen = () => console.log("WebSocket connected");
-    ws.onmessage = (event) => {
-      try {
-        const newData = JSON.parse(event.data);
-        setData(newData);
+      ws.onopen = () => console.log("WebSocket connected");
+      ws.onmessage = (event) => {
+        try {
+          const newData = JSON.parse(event.data);
+          setData(newData);
+          setBlink(true);
+          setTimeout(() => setBlink(false), 150);
+        } catch (err) {
+          console.error("Error parsing message", err);
+        }
+      };
+      ws.onerror = (err) => console.error("WebSocket error", err);
+      ws.onclose = () => console.warn("WebSocket closed");
+      return () => ws.close();
+    } else {
+      // subscribe to simulated live metrics for other classrooms
+      const unsubscribe = classroomBus.subscribe(classroomId, (payload) => {
+        setData(payload);
         setBlink(true);
         setTimeout(() => setBlink(false), 150);
-      } catch (err) {
-        console.error("Error parsing message", err);
-      }
-    };
-    ws.onerror = (err) => console.error("WebSocket error", err);
-    ws.onclose = () => console.warn("WebSocket closed");
-    return () => ws.close();
-  }, []);
+      });
+      // also set current switch state: if it's off, bus will publish an off payload when stopped
+      return () => {
+        try {
+          unsubscribe();
+        } catch (e) {}
+      };
+    }
+  }, [classroomId]);
 
   const blinkClass = blink
     ? "opacity-0 transition-opacity duration-150"
