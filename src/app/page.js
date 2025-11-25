@@ -4,24 +4,46 @@ import { ChartAreaInteractive } from "./Main_chart";
 import { DeviceControl } from "@/components/DeviceControl";
 import BillCard from "@/components/BillCard";
 import ClassroomSelector from "@/components/ClassroomSelector";
+import FloorSelector from "@/components/FloorSelector";
+import DeviceManager from "@/components/DeviceManager";
 import React, { useEffect, useState } from "react";
 import classroomBus from "@/lib/classroomBus";
+import { generateDummyClassroomData } from "@/lib/dummyData";
+
+
 
 export default function Home() {
-  const [selectedClassroom, setSelectedClassroom] = useState(1);
+  const [selectedFloor, setSelectedFloor] = useState(null);
+  const [selectedClassroom, setSelectedClassroom] = useState(null);
+
+  // Get emission for selected classroom only (when selected)
+  const selectedDummy = selectedClassroom ? generateDummyClassroomData(selectedClassroom) : null;
+  const todayEmission = selectedDummy
+    ? selectedDummy.data.today.reduce((sum, h) => sum + h.carbonEmission, 0).toFixed(2)
+    : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-900 to-purple-950 p-4 md:p-10">
       {/* Header */}
       <div className="mb-8 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/20 to-purple-600/20 rounded-2xl blur-xl"></div>
-        <div className="relative px-6 py-8 rounded-2xl border border-indigo-500/30 backdrop-blur-sm bg-gradient-to-r from-indigo-950/50 to-purple-950/50">
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-indigo-300 via-purple-200 to-indigo-300 bg-clip-text text-transparent mb-3">
-            🏢 Building Power Dashboard
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-700/30 to-purple-700/20 rounded-2xl blur-2xl transform -rotate-2"></div>
+        <div className="relative px-6 py-8 rounded-3xl border border-indigo-500/20 backdrop-blur-md bg-gradient-to-r from-indigo-900/40 to-purple-900/30 shadow-xl">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-purple-200 to-indigo-200 mb-2">
+            🏢 FUB Building Power Dashboard
           </h1>
-          <p className="text-indigo-200/80 text-lg font-light tracking-wide">
-            Multi-Classroom Real-Time Monitoring • 30 Classrooms
+          <p className="text-indigo-200/80 text-sm md:text-lg font-medium tracking-wide">
+            Multi-Floor Real-Time Monitoring • 30 Classrooms
           </p>
+        </div>
+      </div>
+
+      {/* Small Carbon Emission Card for selected classroom, with floor info */}
+      <div className="mb-4 flex justify-start">
+        <div className="bg-green-900/60 border border-green-700/40 rounded-lg px-3 py-2 flex flex-col items-center shadow-sm" style={{ minWidth: '120px', maxWidth: '160px' }}>
+          <span className="text-green-300 text-xs font-semibold">🌱 CO₂ Today</span>
+          <span className="text-green-100 text-base font-bold font-mono leading-tight">{todayEmission ?? "--"} {todayEmission ? 'kg' : ''}</span>
+          <span className="text-green-400 text-[10px] mt-1">{selectedDummy ? selectedDummy.classroomName : 'No classroom selected'}</span>
+          <span className="text-green-500 text-[10px] mt-1">{selectedDummy ? `Floor ${selectedDummy.floor}` : ''}</span>
         </div>
       </div>
 
@@ -30,7 +52,9 @@ export default function Home() {
         {/* Left Sidebar - Classroom Selector & Data Display */}
         <div className="lg:col-span-1">
           <div className="sticky top-8 space-y-5">
-            <ClassroomSelector selectedClassroom={selectedClassroom} onSelectClassroom={setSelectedClassroom} />
+            <FloorSelector selectedFloor={selectedFloor} onSelectFloor={(f) => { setSelectedFloor(f); setSelectedClassroom(null); }} />
+            <ClassroomSelector selectedFloor={selectedFloor} selectedClassroom={selectedClassroom} onSelectClassroom={(c) => setSelectedClassroom(c)} />
+            <DeviceManager selectedClassroom={selectedClassroom} />
             <App classroomId={selectedClassroom} />
             <BillCard classroomId={selectedClassroom} />
           </div>
@@ -146,3 +170,6 @@ export default function Home() {
     </div>
   );
 }
+
+
+
